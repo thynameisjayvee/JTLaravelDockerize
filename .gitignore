@@ -1,0 +1,3 @@
+.env
+docker/mysql/logs
+docker/nginx/logs

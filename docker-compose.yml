@@ -1,0 +1,99 @@
+version: '3'
+
+networks:
+  default-network:
+
+volumes:
+  db-store:
+
+services:
+  php:
+    build:
+      args:
+        TZ: ${TZ}
+        NODE_VER: ${NODE_VER}
+      context: ./docker/php
+    container_name: php
+    environment:
+      DB_HOST: mysql
+      DB_DATABASE: ${DB_NAME}
+      DB_USERNAME: ${DB_USER}
+      DB_PASSWORD: ${DB_PASS}
+      MAIL_HOST: ${MAIL_HOST}
+      MAIL_PORT: ${MAIL_PORT}
+      TZ: ${TZ}
+    ports:
+      - "${APP_PORT}:9000"
+    volumes:
+      - ${PROJECT_PATH}:${WORKING_DIR}
+    working_dir: ${WORKING_DIR}
+    networks:
+      - default-network
+
+  nginx:
+    container_name: nginx
+    depends_on: 
+      - php
+    environment:
+      TZ: ${TZ}
+    image: nginx:1.17-alpine
+    ports:
+      - ${WEB_PORT}:80
+    restart: always
+    volumes:
+      - ${PROJECT_PATH}:${WORKING_DIR}
+      - ./docker/nginx/logs:/var/log/nginx
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+    networks:
+      - default-network
+
+  mysql:
+    container_name: mysql
+    environment:
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASS}
+      MYSQL_ROOT_PASSWORD: ${DB_PASS}
+      TZ: ${TZ}
+    image: mysql:8.0
+    ports:
+      - ${DB_PORT}:3306
+    tty: true
+    volumes:
+      - db-store:/var/lib/mysql
+      - ./docker/mysql/logs:/var/log/mysql
+      - ./docker/mysql/my.cnf:/etc/mysql/conf.d/my.cnf
+    networks:
+      - default-network
+
+  phpadmin:
+    image: phpmyadmin/phpmyadmin:5.0
+    container_name: phpadmin
+    ports:
+      - ${PMA_PORT}:80
+    depends_on:
+      - mysql
+    environment:
+      PMA_HOST: mysql
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASS}
+      MYSQL_ROOT_PASSWORD: ${DB_PASS}
+    networks:
+      - default-network
+
+  mail:
+    image: mailhog/mailhog
+    ports:
+      - ${MAILHOG_PORT}:8025
+    networks:
+      - default-network
+
+  node: 
+    image: node:${NODE_VER}-alpine
+    container_name: node
+    tty: true
+    working_dir: ${WORKING_DIR}
+    volumes: 
+      - ${PROJECT_PATH}:${WORKING_DIR}
+    networks:
+      - default-network
